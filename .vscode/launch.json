@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Robot Arm",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/RobotArm3D/bin/Debug/RobotArm3D.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/RobotArm3D",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        }
+    ]
+}

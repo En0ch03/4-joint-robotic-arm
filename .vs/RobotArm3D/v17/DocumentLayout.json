@@ -1,0 +1,41 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\omerr\\source\\repos\\RobotArm3D\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A3B4F68B-52C2-47EF-8962-DFA75D255EE8}|RobotArm3D\\RobotArm3D.csproj|c:\\users\\omerr\\source\\repos\\robotarm3d\\robotarm3d\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A3B4F68B-52C2-47EF-8962-DFA75D255EE8}|RobotArm3D\\RobotArm3D.csproj|solutionrelative:robotarm3d\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\omerr\\source\\repos\\RobotArm3D\\RobotArm3D\\Program.cs",
+              "RelativeDocumentMoniker": "RobotArm3D\\Program.cs",
+              "ToolTip": "C:\\Users\\omerr\\source\\repos\\RobotArm3D\\RobotArm3D\\Program.cs",
+              "RelativeToolTip": "RobotArm3D\\Program.cs",
+              "ViewState": "AgIAAG4BAAAAAAAAAAAqwIkBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-26T23:29:22.579Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>RobotArm3D</RootNamespace>
+    <AssemblyName>RobotArm3D</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="3.3.3" />
+    <PackageReference Include="OpenTK.GLControl" Version="3.3.3" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Program_nocomments.cs" />
+    <Compile Remove="Program.cs.backup" />
+  </ItemGroup>
+</Project>
