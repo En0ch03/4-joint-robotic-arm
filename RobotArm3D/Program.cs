@@ -29,17 +29,13 @@ namespace RobotArm3D
         float camDistance = 7f;
         float minReachRadius;
         float maxReachRadius;
-        Vector3 basketPosition;
-        float basketRadius = 0.4f;
-        float basketHeight = 0.6f;
-        int score = 0;
         Random random = new Random();
         bool laserActive = false;
         System.Collections.Generic.List<Vector3> laserTrail = new System.Collections.Generic.List<Vector3>();
         bool precisionMode = false;
         bool spaceWasPressed = false;
         public RobotArm()
-            : base(1024, 768, GraphicsMode.Default, "3-Joint Robotic Arm Game")
+            : base(1024, 768, GraphicsMode.Default, "3-Joint Robotic Arm")
         {
             VSync = VSyncMode.On;
             CalculateReachLimits();
@@ -49,8 +45,6 @@ namespace RobotArm3D
         {
             maxReachRadius = link2 + link3 - 0.3f;
             minReachRadius = Math.Abs(link2 - link3) + 0.5f;
-            float basketDistance = maxReachRadius + basketRadius;
-            basketPosition = new Vector3(basketDistance, basketRadius, 0f);
         }
         protected override void OnLoad(EventArgs e)
         {
@@ -126,47 +120,74 @@ namespace RobotArm3D
             }
             else
             {
+                // Yerçekimi uygula
                 ballVelocityY += gravity * deltaTime;
+
+                // Pozisyonu güncelle - KOLDAN BAĞIMSIZ hareket
                 ballPosition.Y += ballVelocityY * deltaTime;
+
+                // Zemin çarpışması - top zemine çarptığında zıplama
                 if (ballPosition.Y <= ballRadius)
                 {
                     ballPosition.Y = ballRadius;
-                    ballVelocityY = -ballVelocityY * bounceDamping;
-                    if (Math.Abs(ballVelocityY) < 0.1f)
+
+                    // Zıplama - hızı azaltarak ters çevir
+                    if (ballVelocityY < 0)
                     {
-                        ballVelocityY = 0f;
+                        ballVelocityY = -ballVelocityY * bounceDamping;
+
+                        // Hız çok düştüğünde dur
+                        if (Math.Abs(ballVelocityY) < 0.1f)
+                        {
+                            ballVelocityY = 0f;
+                        }
                     }
                 }
+
+                // Yakalama kontrolü
                 CheckBallCatch();
-                CheckBasketScore();
-                CheckBallOutOfBounds();
             }
         }
         private void CheckBallCatch()
         {
-            bool gripperClosed = gripperAngle < 8f;
-            if (gripperClosed && !ballCaught)
+            // Pençe durumu kontrolü
+            Vector3 endEffectorPos = CalculateEndEffectorPosition();
+            float distance = (ballPosition - endEffectorPos).Length;
+
+            // Her frame debug (sadece yakınsa)
+            if (!gripperOpen && distance < 1.0f && !ballCaught)
             {
-                Vector3 endEffectorPos = CalculateEndEffectorPosition();
-                float distance = (ballPosition - endEffectorPos).Length;
-                if (distance < 0.7f)
-                {
-                    ballCaught = true;
-                    ballVelocityY = 0f;
-                    Matrix4 invTransform = GetGripperTransform();
-                    invTransform.Invert();
-                    Vector4 localPos = Vector4.Transform(new Vector4(ballPosition.X, ballPosition.Y, ballPosition.Z, 1), invTransform);
-                    ballGripperOffset = new Vector3(localPos.X, localPos.Y, localPos.Z);
-                }
+                System.Console.WriteLine($"DEBUG: gripperOpen={gripperOpen}, gripperAngle={gripperAngle:F2}, distance={distance:F3}, ballCaught={ballCaught}");
+            }
+
+            // ÇOK BASIT KOŞUL: Sadece pençe kapatma tuşu basılı ve top yakında mı?
+            bool tryingToCatch = !gripperOpen;
+            bool ballNearby = distance < 0.6f;
+
+            if (tryingToCatch && ballNearby && !ballCaught)
+            {
+                ballCaught = true;
+                ballVelocityY = 0f;
+
+                // Topu pençenin lokal koordinat sisteminde sakla
+                Matrix4 invTransform = GetGripperTransform();
+                invTransform.Invert();
+                Vector4 localPos = Vector4.Transform(new Vector4(ballPosition.X, ballPosition.Y, ballPosition.Z, 1), invTransform);
+                ballGripperOffset = new Vector3(localPos.X, localPos.Y, localPos.Z);
+
+                System.Console.WriteLine($"*** TOP YAKALANDI! *** Mesafe: {distance:F3}, GripperAngle: {gripperAngle:F2}");
+            }
+
+            // Pençe açıldıysa topu bırak
+            if (ballCaught && gripperOpen)
+            {
+                ballCaught = false;
+                System.Console.WriteLine("*** TOP BIRAKILDI! ***");
             }
         }
         private void UpdateCaughtBallPosition()
         {
-            if (gripperAngle > 10f)
-            {
-                ballCaught = false;
-                return;
-            }
+            // Topu pençe ile birlikte taşı
             Matrix4 transform = GetGripperTransform();
             Vector4 worldPos = Vector4.Transform(new Vector4(ballGripperOffset.X, ballGripperOffset.Y, ballGripperOffset.Z, 1), transform);
             ballPosition = new Vector3(worldPos.X, worldPos.Y, worldPos.Z);
@@ -183,33 +204,6 @@ namespace RobotArm3D
             transform *= Matrix4.CreateTranslation(0, link3, 0);
             transform *= Matrix4.CreateRotationY(MathHelper.DegreesToRadians(theta4));
             return transform;
-        }
-        private void CheckBasketScore()
-        {
-            if (!ballCaught)
-            {
-                float distanceToBasket = new Vector2(ballPosition.X - basketPosition.X, ballPosition.Z - basketPosition.Z).Length;
-                float basketBottomY = basketPosition.Y - basketRadius;
-                if (distanceToBasket < basketRadius &&
-                    ballPosition.Y <= basketBottomY + ballRadius + 0.1f &&
-                    Math.Abs(ballVelocityY) < 0.2f)
-                {
-                    score++;
-                    SpawnBallAtRandomPosition();
-                }
-            }
-        }
-        private void CheckBallOutOfBounds()
-        {
-            if (!ballCaught)
-            {
-                float distanceFromCenter = new Vector2(ballPosition.X, ballPosition.Z).Length;
-                if (distanceFromCenter > maxReachRadius)
-                {
-                    score--;
-                    SpawnBallAtRandomPosition();
-                }
-            }
         }
         private void SpawnBallAtRandomPosition()
         {
@@ -233,6 +227,79 @@ namespace RobotArm3D
             transform *= Matrix4.CreateRotationY(MathHelper.DegreesToRadians(theta4));
             return new Vector3(transform.M41, transform.M42, transform.M43);
         }
+        private bool CheckCollisionWithArm(Vector3 ballPos, out Vector3 collisionNormal)
+        {
+            collisionNormal = Vector3.Zero;
+            float collisionRadius = ballRadius + 0.20f; // Top yarıçapı + kol kalınlığı (artırıldı)
+
+            // Kol segmentlerinin pozisyonlarını DOĞRU hesapla
+            Vector3 joint0 = Vector3.Zero;
+
+            // Joint 1 - sadece theta1 kadar Y ekseninde döndürüldükten sonra link1 kadar yukarı
+            Matrix4 t1 = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(theta1)) * Matrix4.CreateTranslation(0, link1, 0);
+            Vector3 joint1 = new Vector3(t1.M41, t1.M42, t1.M43);
+
+            // Joint 2 - önceki transformu al, Z ekseninde dön, sonra link2 kadar ilerle
+            Matrix4 t2 = t1 * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(theta2)) * Matrix4.CreateTranslation(0, link2, 0);
+            Vector3 joint2 = new Vector3(t2.M41, t2.M42, t2.M43);
+
+            // Joint 3
+            Matrix4 t3 = t2 * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(theta3)) * Matrix4.CreateTranslation(0, link3, 0);
+            Vector3 joint3 = new Vector3(t3.M41, t3.M42, t3.M43);
+
+            // End effector
+            Matrix4 t4 = t3 * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(theta4));
+            Vector3 endEffector = new Vector3(t4.M41, t4.M42, t4.M43);
+
+            // Her segment için çarpışma kontrolü
+            var segments = new System.Collections.Generic.List<(Vector3 start, Vector3 end)>
+            {
+                (joint0, joint1),
+                (joint1, joint2),
+                (joint2, joint3),
+                (joint3, endEffector)
+            };
+
+            foreach (var segment in segments)
+            {
+                Vector3 segStart = segment.start;
+                Vector3 segEnd = segment.end;
+
+                // Segmente en yakın noktayı bul
+                Vector3 segDir = segEnd - segStart;
+                float segLength = segDir.Length;
+                if (segLength < 0.001f) continue;
+
+                segDir = segDir.Normalized();
+                Vector3 ballToStart = ballPos - segStart;
+                float t = Vector3.Dot(ballToStart, segDir);
+                t = MathHelper.Clamp(t, 0, segLength);
+
+                Vector3 closestPoint = segStart + segDir * t;
+                float distance = (ballPos - closestPoint).Length;
+
+                if (distance < collisionRadius)
+                {
+                    collisionNormal = (ballPos - closestPoint).Normalized();
+                    return true;
+                }
+            }
+
+            // Eklemlerle çarpışma
+            Vector3[] joints = new[] { joint0, joint1, joint2, joint3, endEffector };
+            foreach (var joint in joints)
+            {
+                float distance = (ballPos - joint).Length;
+                if (distance < collisionRadius)
+                {
+                    collisionNormal = (ballPos - joint).Normalized();
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void UpdateLaserTrail()
         {
             Vector3 endEffectorPos = CalculateEndEffectorPosition();
@@ -260,11 +327,9 @@ namespace RobotArm3D
             GL.LoadMatrix(ref look);
             DrawGround();
             DrawAxes();
-            DrawBasket();
             DrawLaserTrail();
             DrawRobotArm();
             DrawBall();
-            DrawSpawnRadius();
             if (laserActive)
             {
                 DrawLaser();
@@ -304,9 +369,17 @@ namespace RobotArm3D
             string ballStatus = ballCaught ? "Yakalandi" : "Serbest";
             string precisionStatus = precisionMode ? "[HASSAS]" : "";
             string laserStatus = laserActive ? "[LAZER]" : "";
+
+            // Mesafe hesapla
+            float distanceToGripper = (ballPosition - new Vector3(endX, endY, endZ)).Length;
+
+            // Yakalama durumu kontrol
+            bool canCatch = !gripperOpen && gripperAngle < -8f && distanceToGripper < 0.4f;
+            string catchStatus = canCatch ? "[YAKALAYABILIR!]" : "";
+
             Title = string.Format(
-                "4-Joint Robotic Arm Game | SKOR: {0} | X: {1:F2} Y: {2:F2} Z: {3:F2} | Uzaklik: {4:F2} | Theta4: {5:F1} | Pence: {6} | Top: {7} {8} {9}",
-                score, endX, endY, endZ, totalReach, theta4, gripperStatus, ballStatus, precisionStatus, laserStatus
+                "3-Joint Robotic Arm | Pence: {0} (Aci:{1:F1}) | Top: {2} | Mesafe: {3:F3} {4}",
+                gripperStatus, gripperAngle, ballStatus, distanceToGripper, catchStatus
             );
         }
         void DrawAxes()
@@ -348,27 +421,57 @@ namespace RobotArm3D
             DrawCylinder(0.1f, length, 16);
             GL.PopMatrix();
         }
+
+        void DrawLinkWithStripes(float length)
+        {
+            GL.PushMatrix();
+
+            // Ana turuncu silindir
+            GL.Color3(1.0f, 0.4f, 0.0f);
+            DrawCylinder(0.1f, length, 16);
+
+            // Siyah şeritler - iş makinesi tarzı
+            GL.Disable(EnableCap.Lighting);
+            GL.Color3(0.0f, 0.0f, 0.0f);
+
+            int numStripes = (int)(length / 0.15f);
+            for (int i = 0; i < numStripes; i += 2)
+            {
+                float stripeStart = i * 0.15f;
+                float stripeHeight = 0.12f;
+
+                GL.PushMatrix();
+                GL.Translate(0, stripeStart, 0);
+                DrawCylinder(0.102f, stripeHeight, 16);
+                GL.PopMatrix();
+            }
+
+            GL.Enable(EnableCap.Lighting);
+            GL.PopMatrix();
+        }
         void DrawRobotArm()
         {
             GL.PushMatrix();
-            GL.Color3(1.0f, 0.2f, 0.2f);
+
+            // Endüstriyel turuncu renk
+            GL.Color3(1.0f, 0.4f, 0.0f);
             DrawJointHub();
             GL.Rotate(theta1, 0, 1, 0);
-            GL.Color3(0.3f, 0.6f, 1.0f);
-            DrawLink(link1);
+            DrawLinkWithStripes(link1);
             GL.Translate(0, link1, 0);
-            GL.Color3(0.2f, 1.0f, 0.2f);
+
+            GL.Color3(1.0f, 0.4f, 0.0f);
             DrawJointHub();
             GL.Rotate(theta2, 0, 0, 1);
-            GL.Color3(1.0f, 1.0f, 0.2f);
-            DrawLink(link2);
+            DrawLinkWithStripes(link2);
             GL.Translate(0, link2, 0);
-            GL.Color3(1.0f, 0.2f, 1.0f);
+
+            GL.Color3(1.0f, 0.4f, 0.0f);
             DrawJointHub();
             GL.Rotate(theta3, 0, 0, 1);
-            GL.Color3(1.0f, 0.6f, 0.2f);
-            DrawLink(link3);
+            DrawLinkWithStripes(link3);
             GL.Translate(0, link3, 0);
+
             GL.Rotate(theta4, 0, 1, 0);
             DrawGripper();
             GL.PopMatrix();
@@ -383,76 +486,6 @@ namespace RobotArm3D
                 GL.Color3(1.0f, 0.2f, 0.2f);
             GL.Scale(ballRadius, ballRadius, ballRadius);
             DrawCube();
-            GL.PopMatrix();
-        }
-        void DrawBasket()
-        {
-            GL.PushMatrix();
-            GL.Translate(basketPosition.X, basketPosition.Y - basketRadius, basketPosition.Z);
-            GL.Disable(EnableCap.Lighting);
-            GL.Color3(1.0f, 0.8f, 0.0f);
-            GL.LineWidth(3);
-            int segments = 20;
-            GL.Begin(PrimitiveType.LineLoop);
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = (float)(i * 2 * Math.PI / segments);
-                float x = basketRadius * (float)Math.Cos(angle);
-                float z = basketRadius * (float)Math.Sin(angle);
-                GL.Vertex3(x, 0, z);
-            }
-            GL.End();
-            GL.Begin(PrimitiveType.LineLoop);
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = (float)(i * 2 * Math.PI / segments);
-                float x = basketRadius * (float)Math.Cos(angle);
-                float z = basketRadius * (float)Math.Sin(angle);
-                GL.Vertex3(x, basketHeight, z);
-            }
-            GL.End();
-            GL.Begin(PrimitiveType.Lines);
-            for (int i = 0; i < 8; i++)
-            {
-                float angle = (float)(i * 2 * Math.PI / 8);
-                float x = basketRadius * (float)Math.Cos(angle);
-                float z = basketRadius * (float)Math.Sin(angle);
-                GL.Vertex3(x, 0, z);
-                GL.Vertex3(x, basketHeight, z);
-            }
-            GL.End();
-            GL.LineWidth(1);
-            GL.Enable(EnableCap.Lighting);
-            GL.PopMatrix();
-        }
-        void DrawSpawnRadius()
-        {
-            GL.PushMatrix();
-            GL.Disable(EnableCap.Lighting);
-            GL.LineWidth(2);
-            int segments = 40;
-            GL.Color3(1.0f, 0.0f, 0.0f);
-            GL.Begin(PrimitiveType.LineLoop);
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = (float)(i * 2 * Math.PI / segments);
-                float x = minReachRadius * (float)Math.Cos(angle);
-                float z = minReachRadius * (float)Math.Sin(angle);
-                GL.Vertex3(x, 0.01f, z);
-            }
-            GL.End();
-            GL.Color3(0.0f, 1.0f, 0.0f);
-            GL.Begin(PrimitiveType.LineLoop);
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = (float)(i * 2 * Math.PI / segments);
-                float x = maxReachRadius * (float)Math.Cos(angle);
-                float z = maxReachRadius * (float)Math.Sin(angle);
-                GL.Vertex3(x, 0.01f, z);
-            }
-            GL.End();
-            GL.LineWidth(1);
-            GL.Enable(EnableCap.Lighting);
             GL.PopMatrix();
         }
         void DrawLaser()
